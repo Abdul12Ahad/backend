@@ -8,44 +8,41 @@ const generateToken = (user) => {
     });
 };
 
-exports.signup = async (req, res) => {
-    const { name, email, password } = req.body;
+const signup = async (req, res) => {
+    const { name, email, password } = req.headers;
+    if (!name || !email || !password) {
+        return res.status(400).json({ message: "Please fill all the fields" });
+    }
     try {
         const existing = await User.findOne({ email });
         if (existing)
             return res
                 .status(400)
-                .json({ message: "Email already registered" });
+                .json({ message: "User already registered" });
 
         const hashed = await bcrypt.hash(password, 12);
         const newUser = await User.create({ name, email, password: hashed });
 
-      const token = generateToken(newUser);
-      console.log(req.user)
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "none",
-            domain: process.env.BASE_URL,
-            path: "/",
-            maxAge: 1000 * 60 * 24 * 60,
-        }).json({
-          "message" : "Signup successful",
-        })
+        console.table(newUser.toObject())
+        res.status(201).json({
+            message: "Signup successful",
+        });
     } catch (err) {
-        res.status(403).json({ message: "Signup failed" });
+        console.error(err);
+        res.status(500).json({ message: "Signup failed" });
     }
 };
 
-exports.login = async (req, res) => {
-    const { email, password } = req.body;
+const login = async (req, res) => {
+    const { email, password } = req.headers;
+    if (!email || !password) {
+        return res.status(400).json({ message: "Please fill all the fields" });
+    }
     try {
         console.log("first--")
         const user = await User.findOne({ email });
-        console.log("second--")
-
         if (!user)
-            return res.status(400).json({ message: "Invalid credentials" });
+            return res.status(400).json({ message: "User not found, please signup before logging in" });
 
         console.log(user);
 
@@ -54,33 +51,46 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: "Invalid credentials" });
 
         const token = generateToken(user);
+        console.log(token);
+        console.table(user.toObject())
         res.cookie("token", token, {
             httpOnly: true,
             secure: true,
             sameSite: "none",
-            domain: process.env.BASE_URL,
-            path: "/",
             maxAge: 1000 * 60 * 24 * 60,
+        }).status(200).json({
+            message: "Login successful",
         });
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: "Login failed" });
     }
 };
 
-exports.logout = (req, res) => {
-    res.clearCookie("token").json({ message: "Logged out" });
+const logout = (req, res) => {
+    try {
+        console.log("Logging out");
+        res.clearCookie("token").json({ message: "Logged out" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Logout failed" });
+    }
+    
 };
 
-exports.getUser = async (req, res) => {
-    console.log("Fetching user with ID:", req.userId);
+const getUser = async (req, res) => {
+    const userId = req.userId;
+    console.log("Fetching user with ID:", userId);
     try {
-        const user = await User.findById(req.userId);
+        const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: "User  not found" });
+            return res.status(404).json({ message: "User not found" });
         }
-        res.json(user);
+        res.status(200).json(user);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error" });
     }
 };
+
+module.exports = { signup, login, logout, getUser };
