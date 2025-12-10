@@ -9,7 +9,7 @@ const generateToken = (user) => {
 };
 
 const signup = async (req, res) => {
-    const { name, email, password } = req.headers;
+    const { name, email, password } = req.body;
     if (!name || !email || !password) {
         return res.status(400).json({ message: "Please fill all the fields" });
     }
@@ -26,6 +26,7 @@ const signup = async (req, res) => {
         console.table(newUser.toObject())
         res.status(201).json({
             message: "Signup successful",
+            user: newUser
         });
     } catch (err) {
         console.error(err);
@@ -34,17 +35,14 @@ const signup = async (req, res) => {
 };
 
 const login = async (req, res) => {
-    const { email, password } = req.headers;
+    const { email, password } = req.body;
     if (!email || !password) {
-        return res.status(400).json({ message: "Please fill all the fields" });
+        return res.status(400).json({ message: "Please fill all the fields"});
     }
     try {
-        console.log("first--")
         const user = await User.findOne({ email });
         if (!user)
             return res.status(400).json({ message: "User not found, please signup before logging in" });
-
-        console.log(user);
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch)
@@ -59,8 +57,9 @@ const login = async (req, res) => {
             sameSite: "none",
             maxAge: 1000 * 60 * 24 * 60,
         }).status(200).json({
-            message: "Login successful",
-        });
+        message: "Login successful",
+        user,
+});
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Login failed" });
@@ -68,14 +67,20 @@ const login = async (req, res) => {
 };
 
 const logout = (req, res) => {
-    try {
-        console.log("Logging out");
-        res.clearCookie("token").json({ message: "Logged out" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Logout failed" });
-    }
-    
+  try {
+    console.log("Logging out");
+    res
+      .clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+      })
+      .status(200)
+      .json({ message: "Logged out" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Logout failed" });
+  }
 };
 
 const getUser = async (req, res) => {
@@ -86,11 +91,12 @@ const getUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-        res.status(200).json(user);
+        res.status(200).json({ user });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error" });
     }
 };
+
 
 module.exports = { signup, login, logout, getUser };

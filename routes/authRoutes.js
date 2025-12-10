@@ -15,10 +15,26 @@ router.get('/me', authMiddleware, getUser);
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(
   '/google/callback',
-  passport.authenticate('google', {
-    successRedirect: 'http://localhost:5173/dashboard',
-    failureRedirect: 'http://localhost:5173/login',
-  })
+  passport.authenticate('google', { session: false }),
+  (req, res) => {
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+   const isProduction = process.env.NODE_ENV === "production";
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: isProduction,   // secure only in prod
+      sameSite: isProduction ? "none" : "lax",
+      maxAge: 1000 * 60 * 60 * 24,
+    });
+
+
+
+    res.redirect('http://localhost:5173/dashboard');
+  }
 );
 
 module.exports = router;
